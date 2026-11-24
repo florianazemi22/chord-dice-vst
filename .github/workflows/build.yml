@@ -1,0 +1,46 @@
+name: Build Chord Dice
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get the WebView2 SDK (used for the plugin window)
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://dist.nuget.org/win-x86-commandline/latest/nuget.exe -OutFile nuget.exe
+          ./nuget.exe install Microsoft.Web.WebView2 -OutputDirectory "${{ github.workspace }}/webview2"
+
+      - name: Configure
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DJUCE_WEBVIEW2_PACKAGE_LOCATION="${{ github.workspace }}/webview2"
+
+      - name: Build
+        run: cmake --build build --config Release --target ChordDice_VST3 ChordDice_Standalone --parallel
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ChordDice-Windows
+          path: |
+            build/ChordDice_artefacts/Release/VST3/
+            build/ChordDice_artefacts/Release/Standalone/
+
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+
+      - name: Build
+        run: cmake --build build --config Release --target ChordDice_VST3 --parallel
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ChordDice-macOS
+          path: build/ChordDice_artefacts/Release/VST3/
