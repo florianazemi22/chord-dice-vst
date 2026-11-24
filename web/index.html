@@ -268,7 +268,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bor
       <span id="status" role="status" aria-live="polite"></span>
       <span class="grow"></span>
       <button type="button" class="pill-btn" id="copy" title="Copy the chord names"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2.5"/><path d="M15.5 5.5V5A1.5 1.5 0 0 0 14 3.5H5.5A2 2 0 0 0 3.5 5.5V14A1.5 1.5 0 0 0 5 15.5h.5"/></svg>Chords</button>
-      <button type="button" class="pill-btn" id="midi" hidden title="Save the MIDI file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v11.5M7 10.5l5 5 5-5M4.5 19.5h15"/></svg>Export MIDI</button>
+      <button type="button" class="pill-btn" id="midi" title="Save the MIDI file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v11.5M7 10.5l5 5 5-5M4.5 19.5h15"/></svg>Export MIDI</button>
     </div>
     <textarea id="copyOut" readonly hidden aria-label="Chords as text"></textarea>
   </main>
@@ -1834,15 +1834,14 @@ async function copyChords(){
   catch(e){const o=$('copyOut');o.hidden=false;o.value=txt;o.focus();o.select();say('Copying is blocked here. The chords are selected below.');}
 }
 async function saveMidi(){
-  const local=!dl&&!PLUGIN&&!(window.claude&&typeof window.claude.use==='function');
-  if(!dl&&!local)return;
   const live=state.notes.filter(o=>!state.mute[layerOf(o)]);
   if(!live.length){say('There are no notes to save. Turn a track on first.');return;}
   const stem=fileStem(),mid=E.midiFile(live,total(),state.bpm,state.inst,chordsText().split('\n')[0],state.melInst,state.half==='on'),zip=E.zipStore(stem+'.mid',mid);
-  if(local){ /* opened as a plain file: an ordinary browser download of the .mid */
-    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([mid],{type:'audio/midi'}));a.download=stem+'.mid';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);say('MIDI saved to your downloads.');return;}
+  const plain=()=>{ /* an ordinary browser download of the .mid */
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([mid],{type:'audio/midi'}));a.download=stem+'.mid';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);say('MIDI saved to your downloads.');};
+  if(!dl){try{plain();}catch(e){say('This view blocks downloads. Open index.html in Chrome or Edge to export.');}return;}
   try{await dl.save({filename:stem+'.zip',data:zip});say('Saved. Unzip it and drag the .mid into your DAW.');}
-  catch(e){const c=e&&e.code;if(c==='declined')say('');else if(c==='rate_limited')say('A save prompt is already open.');else say('Saving files is not available in this view.');}
+  catch(e){const c=e&&e.code;if(c==='declined')say('');else if(c==='rate_limited')say('A save prompt is already open.');else{try{plain();}catch(err){say('This view blocks downloads. Open index.html in Chrome or Edge to export.');}}}
 }
 
 /* ---------- wiring ---------- */
@@ -1967,7 +1966,7 @@ function init(saved){
     if(e.code==='Space'&&tag!=='button'){e.preventDefault();playing?stop():start();}
     else if(e.key==='r'||e.key==='R'){rollChords();}
   });
-  if(!PLUGIN&&!(window.claude&&typeof window.claude.use==='function'))$('midi').hidden=false;
+  if(PLUGIN)$('midi').hidden=true;   /* the plugin has its own drag bar */
   if(window.claude&&typeof window.claude.use==='function'){
     Promise.resolve(window.claude.use('downloads')).then(d=>{if(d){dl=d;$('midi').hidden=false;}}).catch(()=>{});
   }
