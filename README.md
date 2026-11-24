@@ -21,7 +21,7 @@ Every push to GitHub builds the plugin (see `.github/workflows/build.yml`):
 To build it yourself on Windows: install Visual Studio 2022 (Desktop C++), CMake and the
 WebView2 SDK (`nuget install Microsoft.Web.WebView2 -OutputDirectory webview2`), then
 
-    cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DJUCE_WEBVIEW2_PACKAGE_LOCATION=webview2
+    cmake -S . -B build -A x64 -DJUCE_WEBVIEW2_PACKAGE_LOCATION=webview2
     cmake --build build --config Release --target ChordDice_VST3
 
 ## Install in FL Studio 21 (Windows)
