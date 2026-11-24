@@ -22,12 +22,19 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --target ChordDice_VST3 ChordDice_Standalone --parallel
 
+      - name: Zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          Copy-Item -Recurse "build/ChordDice_artefacts/Release/VST3/Chord Dice.vst3" out/
+          Copy-Item "build/ChordDice_artefacts/Release/Standalone/Chord Dice.exe" out/
+          Copy-Item README.md out/
+          Compress-Archive -Path out/* -DestinationPath ChordDice-Windows.zip
+
       - uses: actions/upload-artifact@v4
         with:
           name: ChordDice-Windows
-          path: |
-            build/ChordDice_artefacts/Release/VST3/
-            build/ChordDice_artefacts/Release/Standalone/
+          path: ChordDice-Windows.zip
 
   macos:
     runs-on: macos-latest
@@ -40,7 +47,34 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --target ChordDice_VST3 --parallel
 
+      - name: Zip
+        run: ditto -c -k --keepParent "build/ChordDice_artefacts/Release/VST3/Chord Dice.vst3" ChordDice-macOS.zip
+
       - uses: actions/upload-artifact@v4
         with:
           name: ChordDice-macOS
-          path: build/ChordDice_artefacts/Release/VST3/
+          path: ChordDice-macOS.zip
+
+  # Every build on main replaces the "latest" release, so the download links never change:
+  # https://github.com/<owner>/chord-dice-vst/releases/latest/download/ChordDice-Windows.zip
+  release:
+    if: github.ref == 'refs/heads/main'
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh release delete latest --repo "$REPO" --yes --cleanup-tag || true
+          gh release create latest dist/ChordDice-Windows.zip dist/ChordDice-macOS.zip \
+            --repo "$REPO" --target "${{ github.sha }}" --title "Chord Dice (latest build)" \
+            --notes "Built from ${{ github.sha }}. Windows: unzip and copy the Chord Dice.vst3 folder to C:\\Program Files\\Common Files\\VST3\\. See README for FL Studio setup."
