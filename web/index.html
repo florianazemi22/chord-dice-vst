@@ -1834,10 +1834,13 @@ async function copyChords(){
   catch(e){const o=$('copyOut');o.hidden=false;o.value=txt;o.focus();o.select();say('Copying is blocked here. The chords are selected below.');}
 }
 async function saveMidi(){
-  if(!dl)return;
+  const local=!dl&&!PLUGIN&&!(window.claude&&typeof window.claude.use==='function');
+  if(!dl&&!local)return;
   const live=state.notes.filter(o=>!state.mute[layerOf(o)]);
   if(!live.length){say('There are no notes to save. Turn a track on first.');return;}
   const stem=fileStem(),mid=E.midiFile(live,total(),state.bpm,state.inst,chordsText().split('\n')[0],state.melInst,state.half==='on'),zip=E.zipStore(stem+'.mid',mid);
+  if(local){ /* opened as a plain file: an ordinary browser download of the .mid */
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([mid],{type:'audio/midi'}));a.download=stem+'.mid';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);say('MIDI saved to your downloads.');return;}
   try{await dl.save({filename:stem+'.zip',data:zip});say('Saved. Unzip it and drag the .mid into your DAW.');}
   catch(e){const c=e&&e.code;if(c==='declined')say('');else if(c==='rate_limited')say('A save prompt is already open.');else say('Saving files is not available in this view.');}
 }
@@ -1964,6 +1967,7 @@ function init(saved){
     if(e.code==='Space'&&tag!=='button'){e.preventDefault();playing?stop():start();}
     else if(e.key==='r'||e.key==='R'){rollChords();}
   });
+  if(!PLUGIN&&!(window.claude&&typeof window.claude.use==='function'))$('midi').hidden=false;
   if(window.claude&&typeof window.claude.use==='function'){
     Promise.resolve(window.claude.use('downloads')).then(d=>{if(d){dl=d;$('midi').hidden=false;}}).catch(()=>{});
   }
